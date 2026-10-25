@@ -7,6 +7,76 @@ from pitch_browser_support import PitchBrowserCase, PITCH, open_destination
 
 
 class ArcadeIntegrationTests(PitchBrowserCase):
+    def test_level_mistakes_cost_one_point_in_hud_results_bridge_and_rewards(self):
+        self.load_world()
+        frame = self.cabinet()
+        self.assertIn('−1 PER MISTAKE', frame.locator('#levelsCard').inner_text())
+        self.start(frame)
+        before = self.totals()
+        target = int(frame.locator('#challengeTarget').inner_text())
+
+        # A wrong letter cannot create negative displayed or reportable points.
+        self.answer(frame, wrong=True)
+        self.assertEqual(frame.locator('#pScore').inner_text(), '0')
+        self.assertEqual(frame.locator('#challengePoints').inner_text(), '0')
+        self.assertEqual(frame.locator('#challengePenalty').inner_text(), '−1')
+        for _ in range(3):
+            self.answer(frame)
+        self.assertEqual(frame.locator('#pScore').inner_text(), '3')
+        self.assertEqual(frame.locator('#challengePoints').inner_text(), '2')
+        self.answer(frame, wrong=True)
+        self.assertEqual(frame.locator('#challengePoints').inner_text(), '1')
+        self.assertEqual(frame.locator('#challengePenalty').inner_text(), '−2')
+        self.assertIn('−1 point', frame.locator('#feedback').inner_text())
+
+        # Let an unanswered note cross the clef through the real gameplay loop.
+        # The fixture controls its starting location, never its score or misses.
+        frame.evaluate('window.__pitchFixture.note({x:104,activeTime:2})')
+        frame.evaluate('window.__pitchFixture.advanceFrame(.05)')
+        self.assertEqual(frame.locator('#pMiss').inner_text(), '3')
+        self.assertEqual(frame.locator('#challengePoints').inner_text(), '0')
+        self.assertEqual(frame.locator('#challengePenalty').inner_text(), '−3')
+        self.assertIn('Missed note! −1 point', frame.locator('#feedback').inner_text())
+        self.assertEqual(self.totals(), before, 'Live play cannot grant completion rewards')
+
+        while int(frame.locator('#challengePoints').inner_text()) < target:
+            self.answer(frame)
+        raw = int(frame.locator('#pScore').inner_text())
+        net = max(0, raw - 3)
+        self.assertEqual(int(frame.locator('#challengePoints').inner_text()), net)
+        self.assertEqual(int(frame.locator('#challengeTotal').inner_text()), net)
+        self.expire(frame)
+        self.page.wait_for_function('window.__messages.some(m=>m.data.type==="result")')
+        report = self.reports()[-1]
+        result = report['result']
+        self.assertTrue(result['won'])
+        self.assertEqual(result['completedLevel'], 1)
+        self.assertEqual(result['misses'], 3)
+        self.assertEqual(result['score'], net, 'Arcade receives the same net score as the child results')
+        self.assertEqual(int(frame.locator('#resultsScore').inner_text()), net)
+        metrics = frame.locator('.results-metric').evaluate_all(
+            'nodes=>Object.fromEntries(nodes.map(node=>[node.querySelector("span").textContent,node.querySelector("strong").textContent]))')
+        self.assertEqual(metrics['Points earned'], str(raw))
+        self.assertEqual(metrics['Mistake penalty'], '−3')
+        self.assertEqual(metrics['Cumulative score'], str(net))
+        self.assertEqual(frame.evaluate('window.__pitchFixture.snapshot().checkpoint.bestCompleted'), 1)
+        self.page.wait_for_function('id=>CodaArcadeQA.progression().recent.some(item=>item.id===id)',
+                                    arg='game:pitch:' + report['runId'])
+        awards = [event for event in self.journal() if event['id'] == 'game:pitch:' + report['runId']]
+        self.assertEqual(len(awards), 1)
+        self.assertEqual(awards[0]['xp'], 10 + min(60, result['correct'] * 2) + 30)
+        after = self.totals()
+        self.assertGreater(after['xp'], before['xp'])
+        frame.evaluate('report=>parent.postMessage(report,location.origin)', report)
+        self.page.wait_for_timeout(80)
+        self.assertEqual(self.totals(), after)
+        frame.locator('#resultsReplay').click()
+        frame.wait_for_function('window.__pitchFixture.snapshot().state==="running"')
+        frame.evaluate('window.__pitchFixture.freeze()')
+        self.assertEqual(frame.locator('#challengeLevel').inner_text(), 'LEVEL 2')
+        self.assertEqual(frame.locator('#challengePoints').inner_text(), '0')
+        self.assertEqual(int(frame.locator('#challengeTotal').inner_text()), net)
+
     def test_passed_level_milestones_reward_the_actual_level_once_and_continue(self):
         self.load_world()
         frame = self.cabinet()

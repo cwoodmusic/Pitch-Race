@@ -51,6 +51,9 @@ window.__pitchFixture={
   advanceHold:seconds=>{
     cancelAnimationFrame(raf);step(player,seconds);
   },
+  advanceFrame:seconds=>{
+    cancelAnimationFrame(raf);loop(last+seconds*1000);cancelAnimationFrame(raf);
+  },
   sample:count=>{
     cancelAnimationFrame(raf);player.notes=[];
     for(let i=0;i<count;i++)spawn(player);

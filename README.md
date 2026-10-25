@@ -2,7 +2,7 @@
 
 A static browser game for learning note names. Serve this directory with Python 3 (`python3 -m http.server 8005`) or another static server; no dependency installation or build is needed.
 
-Level mode starts with treble clef (1–10), introduces bass clef (11–20), and uses grand staff from level 21. Other modes offer a staff selector; multiplayer uses the host's choice. Half and whole notes use the existing hold controls. Level progress saves on this browser, with Continue, Retry, and Restart at Level 1.
+Level mode starts with treble clef (1–10), introduces bass clef (11–20), and uses grand staff from level 21. Other modes offer a staff selector; multiplayer uses the host's choice. Half and whole notes use the existing hold controls. Each Level Challenge mistake deducts one point, with scores never going below zero. Level progress saves on this browser, with Continue, Retry, and Restart at Level 1.
 
 The **Learn the staves** lessons teach lines, spaces, and middle C with guided practice and short quizzes. Read each pattern upward from the bottom:
 
