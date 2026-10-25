@@ -27,3 +27,9 @@ python3 tests/audio-lifecycle-browser.py
 ```
 
 The arcade integration suite expects the `coda-arcade` checkout beside this directory. Browser fixtures add hooks only to the test-served HTML; the deployed game has no test shortcut API. Tests block external services and do not write live Firebase scores or rooms.
+
+## Classroom privacy
+
+Launch with `?classroom=1` (or embed in Coda with classroom privacy on) to keep scores and rewards inside the parent arcade profile. This mode does not load Firebase SDKs, create game-level anonymous accounts, read or submit public leaderboards, ask for initials, or offer online multiplayer. Externally hosted background recordings are also off; native note, countdown and result sounds remain. Same-origin classroom frames inherit their parent's scoped progress store before the game reads local progress. Standalone play without the flag retains its existing online features.
+
+Privacy regression checks: `python3 tests/classroom-privacy-browser.py` (expects the `coda-arcade`, `musictriad`, and `rhythmroom` checkouts beside this directory). External services are blocked; standalone SDK behavior uses a local test double.
