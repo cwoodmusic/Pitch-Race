@@ -194,10 +194,12 @@ class ArcadeIntegrationTests(PitchBrowserCase):
         self.load_world()
         open_destination(self.page, 'boutique')
         self.page.get_by_label('Accessories', exact=True).select_option('bassclefpin')
-        self.page.get_by_role('button', name='Save my look', exact=True).click()
-        self.assertIn('still locked', self.page.locator('.boutique-actions [role="status"]').inner_text())
+        self.assertIn('Read 10 bass-clef notes correctly', self.page.locator('.boutique-actions [role="status"]').inner_text())
+        self.assertNotEqual(self.page.get_by_label('Accessories', exact=True).input_value(), 'bassclefpin',
+                            'A locked choice must be rejected before it can be equipped')
         self.assertNotEqual(self.page.evaluate('CodaArcadeQA.characters().player.appearance.accessory'), 'bassclefpin')
-        self.page.locator('#panelClose').click()
+        self.page.get_by_role('button', name='Save my look', exact=True).click()
+        self.page.locator('#panel').wait_for(state='hidden')
         frame = self.cabinet()
         self.start(frame, mode='classic', staff='bass')
         for _ in range(20):

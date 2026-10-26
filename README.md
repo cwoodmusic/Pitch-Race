@@ -24,6 +24,7 @@ node --test tests/*.test.cjs tests/*.test.js
 python3 tests/arcade-integration-browser.py
 python3 tests/notation-tutorial-browser.py
 python3 tests/audio-lifecycle-browser.py
+python3 tests/multiplayer-lifecycle-browser.py
 ```
 
 The arcade integration suite expects the `coda-arcade` checkout beside this directory. Browser fixtures add hooks only to the test-served HTML; the deployed game has no test shortcut API. Tests block external services and do not write live Firebase scores or rooms.
@@ -33,3 +34,9 @@ The arcade integration suite expects the `coda-arcade` checkout beside this dire
 Launch with `?classroom=1` (or embed in Coda with classroom privacy on) to keep scores and rewards inside the parent arcade profile. This mode does not load Firebase SDKs, create game-level anonymous accounts, read or submit public leaderboards, ask for initials, or offer online multiplayer. Externally hosted background recordings are also off; native note, countdown and result sounds remain. Same-origin classroom frames inherit their parent's scoped progress store before the game reads local progress. Standalone play without the flag retains its existing online features.
 
 Privacy regression checks: `python3 tests/classroom-privacy-browser.py` (expects the `coda-arcade`, `musictriad`, and `rhythmroom` checkouts beside this directory). External services are blocked; standalone SDK behavior uses a local test double.
+
+Multiplayer lobby requests are cancelled when you leave or reopen the lobby. A
+late sign-in, room read, or transaction cannot reconnect an abandoned lobby. If
+a room closes or your membership ends during a race, playback and score syncing
+stop and the game returns to the join/create screen. The multiplayer lifecycle
+checks use in-memory service doubles and make no live database changes.
