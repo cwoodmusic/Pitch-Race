@@ -13,7 +13,7 @@ The **Learn the staves** lessons teach lines, spaces, and middle C with guided p
 
 When launched through the Coda Arcade cabinet, completed runs report Notes, XP, level milestones, and clef mastery evidence to the arcade. Standalone play does not grant arcade rewards. Developer practice does not earn rewards, save level checkpoints, or submit leaderboard scores, even if developer mode is later hidden during that challenge. Lessons do not report race results.
 
-Firebase configuration and rules are unchanged. Existing online leaderboards and multiplayer still use their deployed Firebase service.
+Firebase project configuration is unchanged. Online leaderboards and multiplayer still use their existing Firebase service; the narrow multiplayer validation compatibility change is described below.
 
 ## Validation
 
@@ -31,7 +31,7 @@ The arcade integration suite expects the `coda-arcade` checkout beside this dire
 
 ## Classroom privacy
 
-Launch with `?classroom=1` (or embed in Coda with classroom privacy on) to keep scores and rewards inside the parent arcade profile. This mode does not load Firebase SDKs, create game-level anonymous accounts, read or submit public leaderboards, ask for initials, or offer online multiplayer. Externally hosted background recordings are also off; native note, countdown and result sounds remain. Same-origin classroom frames inherit their parent's scoped progress store before the game reads local progress. Standalone play without the flag retains its existing online features.
+Launch with `?classroom=1` (or embed in Coda with classroom privacy on) to keep scores and rewards inside the parent arcade profile. Solo play does not load Firebase SDKs or create game-level accounts. Public leaderboards and high-score initials stay off. Multiplayer Race is available: choose Create Race or Join Race to connect using a temporary anonymous game session and a four-letter room code. Classroom multiplayer uses in-memory authentication, so it does not store a game login on the device. Externally hosted background recordings are also off; native note, countdown and result sounds remain. Same-origin classroom frames inherit their parent's scoped progress store before the game reads local progress. Standalone play without the flag retains its existing online features.
 
 Privacy regression checks: `python3 tests/classroom-privacy-browser.py` (expects the `coda-arcade`, `musictriad`, and `rhythmroom` checkouts beside this directory). External services are blocked; standalone SDK behavior uses a local test double.
 
@@ -40,3 +40,29 @@ late sign-in, room read, or transaction cannot reconnect an abandoned lobby. If
 a room closes or your membership ends during a race, playback and score syncing
 stop and the game returns to the join/create screen. The multiplayer lifecycle
 checks use in-memory service doubles and make no live database changes.
+
+## Multiplayer rule compatibility
+
+The current room payload includes the host's staff choice (`treble`, `bass`, or
+`grand`), and ledger notes can have staff positions from −2 through 10.
+`multiplayer-rules.fragment.json` permits those existing values. It changes only
+these two validation leaves; it does not loosen room ownership, player writes,
+settings access, or any other database namespace.
+
+Never deploy the fragment as the full database rules. Save a fresh complete
+rules snapshot, then generate a candidate with:
+
+```sh
+node tools/merge-multiplayer-rules.cjs current-full-rules.json merged-full-rules.json
+node --test tests/multiplayer-rules.test.cjs
+node tools/test-multiplayer-rules.cjs
+```
+
+Review the complete merge before publishing it. The merger preserves unrelated
+nodes and refuses an unrecognized preexisting staff or note validator. The
+emulator runner uses only the loopback `demo-coda-pitch-rules` project, the
+isolated Firebase toolchain in `/tmp/coda-classroom-emulator` (override with
+`CODA_FIREBASE_TEST_TOOLS`), and the sibling Coda Arcade loopback preloader. Its
+regressions first reproduce the old validation failures, then check accepted
+staff/ledger notes, rejected invalid values, and unchanged cross-player guards.
+No deployed credentials or real rooms are used by these tests.

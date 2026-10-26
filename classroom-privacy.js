@@ -1,4 +1,4 @@
-/* Classroom games report progress to the parent, without separate cloud users. */
+/* Classroom progress stays private; multiplayer connects only when requested. */
 (function(root){
  'use strict';
  let enabled=false;
@@ -14,8 +14,8 @@
  }catch{}
  if(enabled)root.document.documentElement.dataset.classroom='true';
  let loading=null;
- function loadFirebaseSDK(){
-  if(enabled)return Promise.resolve(false);
+ function loadFirebaseSDK(options={}){
+  if(enabled&&options.multiplayer!==true)return Promise.resolve(false);
   if(loading)return loading;
   loading=(async()=>{
    for(const name of ['app','auth','database']){
@@ -29,6 +29,7 @@
    }
    return true;
   })();
+  loading.then(loaded=>{if(!loaded)loading=null;});
   return loading;
  }
  root.CodaGamePrivacy=Object.freeze({enabled,loadFirebaseSDK});

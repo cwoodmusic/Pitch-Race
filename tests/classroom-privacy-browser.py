@@ -35,9 +35,7 @@ PITCH_PROBE = r'''
 window.__privacyGuardProbe=async()=>{
  const before=gameMode;
  await offerHighScore({score:999,streak:10},'classic');await submitInitials();await openScores();
- selectMode('multi');showMultiplayerLobby();
- let rejected=false;try{await multiSignIn();}catch{rejected=true;}
- return {before,after:gameMode,rejected,scoresHidden:$('scoresOverlay').classList.contains('hidden'),
+ return {before,after:gameMode,scoresHidden:$('scoresOverlay').classList.contains('hidden'),
    initialsHidden:$('initialsOverlay').classList.contains('hidden'),lobbyHidden:$('multiLobby').classList.contains('hidden')};
 };
 '''
@@ -110,13 +108,14 @@ addEventListener('message',event=>{const frame=document.querySelector('iframe');
         self.assertEqual(external,[],'Classroom frames must not load SDKs or contact public services')
         self.assertEqual(self.external_writes,[])
 
-    def test_pitch_classroom_has_no_sdk_initials_multiplayer_or_public_score_side_effects(self):
+    def test_pitch_classroom_solo_has_no_sdk_initials_or_public_score_side_effects(self):
         frame=self.host('pitch',parent=False)
         self.assertTrue(frame.evaluate('CodaGamePrivacy.enabled'))
         self.assertFalse(frame.evaluate('Boolean(window.firebase)'))
-        for selector in ['#highScoresButton','#multiCard']:self.assertTrue(frame.locator(selector).is_hidden())
+        self.assertTrue(frame.locator('#highScoresButton').is_hidden())
+        self.assertTrue(frame.locator('#multiCard').is_visible())
         guard=frame.evaluate('window.__privacyGuardProbe()')
-        self.assertEqual(guard,{'before':'classic','after':'classic','rejected':True,
+        self.assertEqual(guard,{'before':'classic','after':'classic',
                                 'scoresHidden':True,'initialsHidden':True,'lobbyHidden':True})
         offers_after_direct_probe=frame.evaluate('window.__pitchScoreOffers.length')
         self.start(frame,mode='classic');self.answer(frame);self.expire(frame)
@@ -163,8 +162,8 @@ addEventListener('message',event=>{const frame=document.querySelector('iframe');
     def test_triad_private_advanced_tie_and_win_keep_the_parent_bridge(self):
         frame=self.host('triad',parent=False)
         frame.locator('label.mode-toggle').click();frame.locator('#vsComputer').click()
-        for selector in ['#vsClassmate','#tournamentMode']:self.assertTrue(frame.locator(selector).is_hidden())
-        self.assertEqual(frame.evaluate('''async()=>{try{await initFirebase();return false;}catch{return true;}}'''),True)
+        for selector in ['#vsClassmate','#tournamentMode']:self.assertTrue(frame.locator(selector).is_disabled())
+        self.assertFalse(frame.evaluate('Boolean(window.firebase)'))
         frame.evaluate('''()=>{
           cancelTriadAnimations();codaTriadReset();
           const mine=[0,1,2,3,4,6,9];

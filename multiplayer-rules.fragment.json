@@ -1,0 +1,20 @@
+{
+  "rooms": {
+    "$code": {
+      "settings": {
+        "staff": {
+          ".validate": "newData.isString() && (newData.val() === 'treble' || newData.val() === 'bass' || newData.val() === 'grand')"
+        }
+      },
+      "players": {
+        "$role": {
+          "notes": {
+            "$i": {
+              ".validate": "newData.hasChildren(['pitch','x']) && newData.child('pitch').isNumber() && newData.child('pitch').val() >= -2 && newData.child('pitch').val() <= 10 && newData.child('x').isNumber() && newData.child('x').val() >= 0 && newData.child('x').val() <= 920"
+            }
+          }
+        }
+      }
+    }
+  }
+}
