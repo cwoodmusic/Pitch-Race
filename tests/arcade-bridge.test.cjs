@@ -72,6 +72,24 @@ test('standalone runs do not send to or wait for a parent',()=>{
  const env=frame(true),bridge=createMessageBridge(env.win);assert.equal(bridge.id(),'unique-run');assert.equal(bridge.report('run-1',metrics),false);assert.deepEqual(env.messages,[]);assert.equal(bridge.getState().pending,0);
 });
 
+test('the custom arcade domain and existing origins retain an exact trusted-parent handshake',()=>{
+ assert.deepEqual(ORIGINS,['https://cwoodmusic.github.io','https://music-arcade.aquajelly16.chatgpt.site','https://www.coda-arcade.com']);
+ for(const origin of ORIGINS){
+  const env=frame(),bridge=createMessageBridge(env.win);
+  bridge.report('domain-run',metrics);
+  const good={source:env.parent,origin,data:{coda:1,type:'init',game:'pitch',token:'domain-session'}};
+  for(const untrusted of ['http://www.coda-arcade.com','https://www.coda-arcade.com.evil.invalid','https://coda-arcade.com','https://www.coda-arcade.com:444','https://cwoodmusic.github.io.evil.invalid'])env.receive({...good,origin:untrusted});
+  env.receive({...good,source:{}});env.receive({...good,data:{...good.data,game:'triad'}});
+  env.receive({...good,data:{...good.data,token:''}});env.receive({...good,data:{...good.data,token:'x'.repeat(101)}});
+  assert.equal(bridge.getState().connected,false);assert.equal(env.messages.filter(m=>m.data.type==='result').length,0);
+  env.receive(good);
+  const reports=env.messages.filter(m=>m.data.type==='result');assert.equal(reports.length,1);
+  assert.equal(reports[0].origin,origin);assert.equal(reports[0].data.token,'domain-session');
+  assert.equal(reports[0].data.game,'pitch');assert.equal(reports[0].data.runId,'domain-run');
+  bridge.destroy();
+ }
+});
+
 test('normal completed levels persist a checkpoint without replaying completion events',()=>{
  const values=new Map(),storage={getItem:key=>values.get(key)||null,setItem:(key,value)=>values.set(key,value)};
  const progress=createLevelProgress({storage});assert.equal(progress.snapshot().nextLevel,1);

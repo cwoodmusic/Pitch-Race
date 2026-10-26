@@ -5,7 +5,7 @@
  if(root){root.PitchRaceProgress=api;root.CodaBridge=api.createMessageBridge(root);}
 })(typeof window!=='undefined'?window:null,function(){
  'use strict';
- const ORIGINS=Object.freeze(['https://cwoodmusic.github.io','https://music-arcade.aquajelly16.chatgpt.site']);
+ const ORIGINS=Object.freeze(['https://cwoodmusic.github.io','https://music-arcade.aquajelly16.chatgpt.site','https://www.coda-arcade.com']);
  const copy=value=>JSON.parse(JSON.stringify(value));
  const count=value=>Number.isSafeInteger(value)&&value>=0?value:0;
  function randomId(){return globalThis.crypto?.randomUUID?.()||Date.now().toString(36)+'-'+Math.random().toString(36).slice(2);}
