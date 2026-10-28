@@ -4,6 +4,8 @@ A static browser game for learning note names. Serve this directory with Python 
 
 Level mode starts with treble clef (1–10), introduces bass clef (11–20), and uses grand staff from level 21. Other modes offer a staff selector; multiplayer uses the host's choice. Half and whole notes use the existing hold controls. Each Level Challenge mistake deducts one point, with scores never going below zero. Level progress saves on this browser, with Continue, Retry, and Restart at Level 1.
 
+In every race mode, each three cumulative mistakes freeze your notes in place for three seconds. Wrong answers and missed notes both count; a correct answer does not reset the count. Answers are disabled during the freeze, and no new notes appear until it ends. Race timers and opponents keep going. The freeze applies in multiplayer even when the host turns off optional wrong-note penalties. Endless Challenge resumes after each freeze; choose **Finish run** to complete it and receive the usual results and eligible arcade rewards.
+
 The **Learn the staves** lessons teach lines, spaces, and middle C with guided practice and short quizzes. Read each pattern upward from the bottom:
 
 - Treble lines: Every Good Boy Does Fine (E G B D F)
@@ -23,6 +25,7 @@ With Node, Python Playwright, and Chromium installed:
 node --test tests/*.test.cjs tests/*.test.js
 python3 tests/arcade-integration-browser.py
 python3 tests/notation-tutorial-browser.py
+python3 tests/note-freeze-browser.py
 python3 tests/audio-lifecycle-browser.py
 python3 tests/multiplayer-lifecycle-browser.py
 ```

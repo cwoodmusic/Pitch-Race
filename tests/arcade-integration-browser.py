@@ -39,6 +39,10 @@ class ArcadeIntegrationTests(PitchBrowserCase):
         self.assertIn('Missed note! −1 point', frame.locator('#feedback').inner_text())
         self.assertEqual(self.totals(), before, 'Live play cannot grant completion rewards')
 
+        # The third cumulative mistake freezes answers for three real seconds.
+        # This fixture stops RAF, so render a frame after the penalty expires.
+        self.page.wait_for_timeout(3050)
+        frame.evaluate('window.__pitchFixture.advanceFrame(.05)')
         while int(frame.locator('#challengePoints').inner_text()) < target:
             self.answer(frame)
         raw = int(frame.locator('#pScore').inner_text())
