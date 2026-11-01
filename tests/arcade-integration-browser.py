@@ -29,15 +29,20 @@ class ArcadeIntegrationTests(PitchBrowserCase):
         self.assertEqual(frame.locator('#challengePenalty').inner_text(), '−2')
         self.assertIn('−1 point', frame.locator('#feedback').inner_text())
 
-        # Let an unanswered note cross the clef through the real gameplay loop.
-        # The fixture controls its starting location, never its score or misses.
-        frame.evaluate('window.__pitchFixture.note({x:104,activeTime:2})')
+        # The red line waits for an answer without adding a miss or penalty.
+        # The fixture controls note position, never its score or misses.
+        frame.evaluate('window.__pitchFixture.note({x:99,activeTime:2})')
         frame.evaluate('window.__pitchFixture.advanceFrame(.05)')
+        self.assertEqual(frame.locator('#pMiss').inner_text(), '2')
+        self.assertEqual(frame.locator('#challengePoints').inner_text(), '1')
+        self.assertEqual(frame.locator('#challengePenalty').inner_text(), '−2')
+        self.assertIn('red line', frame.locator('#freezeStatus').inner_text())
+        self.assertFalse(frame.locator('#answers button').first.is_disabled())
+        self.assertEqual(self.totals(), before, 'Live play cannot grant completion rewards')
+        self.answer(frame, wrong=True)
         self.assertEqual(frame.locator('#pMiss').inner_text(), '3')
         self.assertEqual(frame.locator('#challengePoints').inner_text(), '0')
         self.assertEqual(frame.locator('#challengePenalty').inner_text(), '−3')
-        self.assertIn('Missed note! −1 point', frame.locator('#feedback').inner_text())
-        self.assertEqual(self.totals(), before, 'Live play cannot grant completion rewards')
 
         # The third cumulative mistake freezes answers for three real seconds.
         # This fixture stops RAF, so render a frame after the penalty expires.

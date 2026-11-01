@@ -1,4 +1,4 @@
-"""Mistake freeze regressions through real Pitch Race input and frame handlers.
+"""Answer-line waits and mistake freezes through real Pitch Race input and frames.
 
 Run: python3 tests/note-freeze-browser.py
 The test-served HTML has a virtual monotonic clock and local state setup hooks.
@@ -46,8 +46,9 @@ window.__freezeTest={
   player.notes=[n];draw($('playerStaff'),player,'#315bd1');updateLabels();
   return noteLetter(n);
  },
+ queue(notes){player.notes=notes.map(n=>({pitch:0,clef:'treble',kind:'quarter',visibleTime:2,activeTime:2,starter:false,...n}));return this.snapshot();},
  massMisses(count){
-  player.notes=Array.from({length:count},()=>({pitch:0,clef:'treble',kind:'quarter',x:100,visibleTime:2,activeTime:2,starter:false}));
+  player.notes=Array.from({length:count},()=>({pitch:0,clef:'treble',kind:'quarter',x:98,visibleTime:2,activeTime:2,starter:false}));
   this.advance(.001);return this.snapshot();
  },
  advance(seconds){
@@ -63,7 +64,7 @@ window.__freezeTest={
  counters(pending,spawn){player.pending=pending;player.spawn=spawn;},
  direct(letter){answer(letter);levelPress(letter,'test');return this.snapshot();},
  snapshot(){return{
-  mode:gameMode,state,now:freezeTestNow,frozen:isNoteFrozen(),until:noteFreezeUntil,
+  mode:gameMode,state,now:freezeTestNow,frozen:isNoteFrozen(),waiting:waitingAtAnswerLine(),until:noteFreezeUntil,
   score:player.score,correct:player.correct,misses:player.miss,remaining,
   notes:player.notes.map(n=>({...n})),cpuNotes:cpu.notes.map(n=>({...n})),
   pending:player.pending,spawn:player.spawn,
@@ -197,16 +198,99 @@ class NoteFreezeTests(PitchBrowserCase):
                 self.page.keyboard.up(frozen['letter'].lower())
                 self.assertEqual(self.snapshot()['correct'], 1)
 
-    def test_third_expired_note_stops_the_same_frame_from_removing_more_notes(self):
+    def test_reaching_the_answer_line_waits_without_misses_and_keeps_input_available(self):
+        variants = [dict(mode='classic', staff='bass'), dict(mode='endless', staff='grand'),
+                    dict(mode='levels', level=21), dict(mode='multi', values='quarter'),
+                    dict(mode='multi', values='holds', penalties=False),
+                    dict(mode='multi', values='all', staff='grand')]
+        for options in variants:
+            with self.subTest(**options):
+                self.prepare(**options)
+                self.page.evaluate('__freezeTest.queue([{x:99},{x:280}])')
+                self.page.evaluate('__freezeTest.counters(.4,1.5)')
+                waiting = self.advance(.05)
+                self.assertTrue(waiting['waiting'])
+                self.assertFalse(waiting['frozen'])
+                self.assertEqual(waiting['notes'][0]['x'], 98)
+                self.assertEqual(waiting['misses'], 0)
+                self.assertTrue(all(not value for value in waiting['disabled']))
+                self.assertIn('red line', waiting['status'])
+                # The note center must stop on the actual rendered answer line,
+                # on every staff and at any responsive width.
+                self.assertTrue(self.page.evaluate("""()=>{
+                  const staff=document.querySelector('#playerStaff');
+                  return Number(staff.querySelector('[data-symbol="notehead"]').dataset.x)
+                    ===Number(staff.querySelector('[data-symbol="answer-line"]').getAttribute('x1'));
+                }"""))
+                later = self.advance(1.2)
+                self.assert_unchanged(waiting, later)
+                if options['mode'] == 'classic':
+                    self.assertLess(later['cpuNotes'][0]['x'], waiting['cpuNotes'][0]['x'])
+                self.assertAlmostEqual(later['remaining'], waiting['remaining'] +
+                                       (1.2 if options['mode'] == 'endless' else -1.2), places=5)
+                if options['mode'] == 'classic' or options.get('values') == 'holds':
+                    self.page.locator('#answers').get_by_role('button', name=later['letter'], exact=True).click()
+                    self.assertEqual(self.snapshot()['correct'], 1)
+                else:
+                    self.assertEqual(self.key()['correct'], 1)
+                resumed = self.advance(.05)
+                self.assertFalse(resumed['waiting'])
+                self.assertLess(resumed['notes'][0]['x'], waiting['notes'][1]['x'])
+                self.assertEqual(resumed['misses'], 0)
+
+    def test_wrong_answers_at_the_line_keep_the_existing_three_mistake_freeze(self):
+        self.prepare(mode='endless', note={'x':99})
+        waiting = self.advance(.05)
+        one = self.wrongs(1)
+        self.assertTrue(one['waiting']);self.assertFalse(one['frozen'])
+        self.assertEqual(one['misses'], 1)
+        self.assertEqual(self.advance(.5)['notes'], waiting['notes'])
+        frozen = self.wrongs(2)
+        self.assertTrue(frozen['frozen']);self.assertTrue(all(frozen['disabled']))
+        self.assertEqual(self.key()['correct'], 0)
+        thawed = self.advance(3.001)
+        self.assertFalse(thawed['frozen']);self.assertTrue(thawed['waiting'])
+        self.assertTrue(all(not value for value in thawed['disabled']))
+        self.assertEqual(self.key()['correct'], 1)
+        self.assertFalse(self.snapshot()['waiting'])
+
+    def test_held_answers_can_complete_or_be_retried_while_the_line_stops_motion(self):
+        for kind, seconds in [('half', .7), ('whole', 1.4)]:
+            with self.subTest(kind=kind):
+                self.prepare(mode='endless')
+                self.page.evaluate('kind=>__freezeTest.queue([{x:99,kind},{x:300}])', kind)
+                waiting = self.advance(.05)
+                letter = waiting['letter'].lower()
+                self.page.keyboard.down(letter)
+                partly = self.advance(.2)
+                self.assertIsNotNone(partly['hold'])
+                self.assertEqual(partly['notes'], waiting['notes'])
+                self.page.keyboard.up(letter)
+                self.assertIsNone(self.snapshot()['hold'])
+                self.assertTrue(self.snapshot()['waiting'])
+                self.assertEqual(self.snapshot()['misses'], 0)
+                self.page.keyboard.down(letter)
+                completed = self.advance(seconds)
+                self.page.keyboard.up(letter)
+                self.assertEqual(completed['correct'], 1)
+                self.assertLess(completed['notes'][0]['x'], waiting['notes'][1]['x'])
+                self.assertFalse(completed['waiting'])
+
+    def test_multiple_due_notes_never_auto_miss_or_bypass_the_answer_gate(self):
         for mode in ('classic', 'levels', 'endless', 'multi'):
             with self.subTest(mode=mode):
                 self.prepare(mode=mode, values='all')
-                self.wrongs(2)
-                frozen = self.page.evaluate('__freezeTest.massMisses(5)')
-                self.assertTrue(frozen['frozen'])
-                self.assertEqual(frozen['misses'], 3)
-                self.assertEqual(len(frozen['notes']), 4)
-                self.assert_unchanged(frozen, self.advance(1))
+                waiting = self.page.evaluate('__freezeTest.massMisses(5)')
+                self.assertFalse(waiting['frozen'])
+                self.assertTrue(waiting['waiting'])
+                self.assertEqual(waiting['misses'], 0)
+                self.assertEqual(len(waiting['notes']), 5)
+                self.assertTrue(all(note['x'] >= 98 for note in waiting['notes']))
+                self.assert_unchanged(waiting, self.advance(1))
+                for correct in range(1, 6):
+                    self.assertEqual(self.key()['correct'], correct)
+                    self.advance(2)
+                    self.assertEqual(self.snapshot()['misses'], 0)
 
     def test_reset_and_a_new_mode_clear_the_old_freeze(self):
         self.prepare(mode='classic')
